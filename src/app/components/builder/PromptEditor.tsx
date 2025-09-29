@@ -5,20 +5,40 @@ import { useConfig } from '../../context/ConfigContext';
 import { useNotifier } from '../../context/NotificationContext';
 
 export const PromptEditor = () => {
-  const { 
-    promptText, 
-    setPromptText, 
-    generatePrompt, 
-    resetConfig, 
-    jsonText 
+  const {
+    promptText,
+    setPromptText,
+    generatePrompt,
+    resetConfig,
+    jsonText,
   } = useConfig();
   const { notify } = useNotifier();
 
   const copyJson = async () => {
+    const payload = jsonText ?? '';
+
     try {
-      await navigator.clipboard.writeText(jsonText);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = payload;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+
+        if (!successful) {
+          throw new Error('execCommand copy failed');
+        }
+      }
+
       notify('JSON copied');
-    } catch {
+    } catch (error) {
+      console.error('Copy JSON failed', error);
       notify('Copy failed');
     }
   };
@@ -57,11 +77,18 @@ export const PromptEditor = () => {
           className="w-full min-h-[10rem] rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 placeholder-slate-400"
           placeholder="Your prompt will appear here. Edit freely before generating the website."
           value={promptText}
-          onChange={e => setPromptText(e.target.value)}
+          onChange={(e) => setPromptText(e.target.value)}
         ></textarea>
-        <details className="mt-3 rounded-xl bg-slate-900/60 ring-1 ring-white/10 p-3" id="json-view">
-          <summary className="cursor-pointer text-sm text-slate-300">Options JSON</summary>
-          <pre className="mt-2 text-xs text-slate-300 overflow-auto max-h-60">{jsonText}</pre>
+        <details
+          className="mt-3 rounded-xl bg-slate-900/60 ring-1 ring-white/10 p-3"
+          id="json-view"
+        >
+          <summary className="cursor-pointer text-sm text-slate-300">
+            Options JSON
+          </summary>
+          <pre className="mt-2 text-xs text-slate-300 overflow-auto max-h-60">
+            {jsonText}
+          </pre>
           <div className="mt-2 flex gap-2">
             <button
               className="px-3 py-2 rounded-lg bg-slate-800/80 ring-1 ring-white/10 hover:bg-slate-800 text-sm"
