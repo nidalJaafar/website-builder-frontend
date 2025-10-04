@@ -197,3 +197,11 @@ html:not(.dark) .placeholder-slate-400::placeholder {
   animation: fade-in-out 2.2s ease-in-out forwards;
 }
 
+
+/* Hero CTA specific styles */
+html:not(.dark) .launch-builder-btn {
+  background-color: rgba(16, 189, 245, 0.3);
+}
+html.dark .launch-builder-btn {
+  background-color: rgba(16, 189, 245, 0.2);
+}

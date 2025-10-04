@@ -167,3 +167,27 @@ export const DeployIcon = () => (
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
   </svg>
 );
+export const SunIcon = () => (
+  <svg
+    className="h-5 w-5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    viewBox="0 0 24 24"
+  >
+    <path d="M12 4V2M12 22v-2M5.64 5.64L4.22 4.22M19.78 19.78l-1.42-1.42M4 12H2m20 0h-2M5.64 18.36L4.22 19.78M19.78 4.22l-1.42 1.42"></path>
+    <circle cx="12" cy="12" r="4"></circle>
+  </svg>
+);
+
+export const MoonIcon = () => (
+  <svg
+    className="h-5 w-5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    viewBox="0 0 24 24"
+  >
+    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+  </svg>
+);
