@@ -26,7 +26,7 @@ export const Footer = () => {
           <p className="text-xs uppercase tracking-wide text-slate-400">Step 3</p>
           <h4 className="font-semibold">Preview</h4>
           <p className="text-sm text-slate-400">
-            Create a site preview and export.
+            Generate a preview, switch to Review mode, and iterate with chat.
           </p>
         </div>
       </section>
@@ -42,8 +42,10 @@ export const Footer = () => {
             <p className="font-semibold">Shortcuts</p>
             <ul className="mt-2 space-y-1 list-disc list-inside">
               <li>Cmd/Ctrl + Enter - Generate Prompt</li>
-              <li>Cmd/Ctrl + Shift + G - Generate Website</li>
-              <li>Cmd/Ctrl + B - Toggle Advanced</li>
+              <li>Cmd/Ctrl + Shift + G - Generate/Regenerate Website</li>
+              <li>Cmd/Ctrl + B - Toggle Advanced Options</li>
+              <li>Cmd/Ctrl + E - Return to Configure Mode</li>
+              <li>Cmd/Ctrl + Shift + H - Toggle History Drawer (Review)</li>
             </ul>
           </div>
           <div>

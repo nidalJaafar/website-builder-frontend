@@ -61,6 +61,7 @@ export type PerfImageOption = 'eager_home_hero' | 'lazy_everything_else';
 export type PerfFontOption = 'swap' | 'optional';
 export type PerfEffectsOption = 'low' | 'medium' | 'high';
 export type LanguageOption = 'en' | 'fr' | 'ar';
+export type BuilderMode = 'configure' | 'review';
 
 export interface CoreConfig {
   siteType: SiteType;
@@ -142,6 +143,8 @@ interface IConfigContext {
   jsonText: string;
   history: HistoryItem[];
   logoPreview: string;
+  builderMode: BuilderMode;
+  lastGeneratedPrompt: string;
   updateConfig: (path: string, value: unknown) => void;
   generatePrompt: () => void;
   resetConfig: () => void;
@@ -150,6 +153,8 @@ interface IConfigContext {
   clearHistory: () => void;
   setPromptText: (text: string) => void;
   setLogoPreview: (data: string) => void;
+  enterConfigureMode: () => void;
+  enterReviewMode: (options?: { preservePrompt?: boolean }) => void;
 }
 
 const ConfigContext = createContext<IConfigContext | undefined>(undefined);
@@ -222,6 +227,8 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [jsonText, setJsonText] = useState('{}');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [logoPreview, setLogoPreview] = useState('');
+  const [builderMode, setBuilderMode] = useState<BuilderMode>('configure');
+  const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState('');
   const { notify } = useNotifier();
 
   const updateJsonView = useCallback((cfg: Config) => {
@@ -284,6 +291,8 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     setConfig(initialConfig);
     setPromptText('');
     setLogoPreview('');
+    setBuilderMode('configure');
+    setLastGeneratedPrompt('');
     updateJsonView(initialConfig);
     notify('Options reset');
   };
@@ -296,14 +305,18 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const generateSite = () => {
     const prompt = promptText.trim() || buildReadablePrompt(config);
     addToHistory({ title: config.core.preset || 'Project', prompt, options: config });
+    setLastGeneratedPrompt(prompt);
+    setBuilderMode('review');
     notify(`Generating: ${prompt.substring(0, 30)}...`);
   };
 
   const loadFromHistory = (item: HistoryItem) => {
     setConfig(item.options);
     setPromptText(item.prompt || '');
+    setLastGeneratedPrompt(item.prompt || '');
     updateJsonView(item.options);
     setLogoPreview(item.options.essentials.logoData || '');
+    setBuilderMode('review');
     notify('Loaded from history');
   };
 
@@ -312,12 +325,25 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     notify('History cleared');
   };
 
+  const enterConfigureMode = () => {
+    setBuilderMode('configure');
+  };
+
+  const enterReviewMode = (options?: { preservePrompt?: boolean }) => {
+    setBuilderMode('review');
+    if (!options?.preservePrompt) {
+      setLastGeneratedPrompt(promptText.trim() || buildReadablePrompt(config));
+    }
+  };
+
   const value: IConfigContext = {
     config,
     promptText,
     jsonText,
     history,
     logoPreview,
+    builderMode,
+    lastGeneratedPrompt,
     updateConfig,
     generatePrompt,
     resetConfig,
@@ -326,6 +352,8 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     clearHistory,
     setPromptText,
     setLogoPreview,
+    enterConfigureMode,
+    enterReviewMode,
   };
 
   return (
