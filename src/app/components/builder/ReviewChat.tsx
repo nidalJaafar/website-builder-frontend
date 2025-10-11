@@ -1,18 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useConfig } from "@/app/context/ConfigContext";
-import { useNotifier } from "@/app/context/NotificationContext";
-
-type ChatMessage = {
-  id: string;
-  role: "system" | "user";
-  content: string;
-  timestamp: number;
-};
 
 type ReviewChatProps = {
-  onRegenerate: () => void;
+  onRegenerate: () => Promise<void>;
   onEditSettings: () => void;
 };
 
@@ -29,62 +21,52 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
   onEditSettings,
 }) => {
   const {
-    lastGeneratedPrompt,
-    promptText,
-    setPromptText,
+    chatMessages,
+    sendChatMessage,
+    isSendingChatMessage,
+    buildStatus,
+    buildStatusMessage,
   } = useConfig();
-  const { notify } = useNotifier();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const lastPromptRef = useRef<string>("");
 
-  useEffect(() => {
-    if (!lastGeneratedPrompt || lastGeneratedPrompt === lastPromptRef.current) {
-      return;
-    }
-    lastPromptRef.current = lastGeneratedPrompt;
-    setMessages([
-      {
-        id: "seed",
-        role: "system",
-        content: lastGeneratedPrompt,
-        timestamp: Date.now(),
-      },
-    ]);
-  }, [lastGeneratedPrompt]);
+  const hasConversation = useMemo(
+    () => chatMessages.length > 1,
+    [chatMessages]
+  );
 
-  const hasConversation = useMemo(() => messages.length > 1, [messages]);
-
-  const makeId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2));
-
-  const appendMessage = (content: string) => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: makeId(),
-        role: "user",
-        content: trimmed,
-        timestamp: Date.now(),
-      },
-    ]);
-
-    const base = (promptText || lastGeneratedPrompt || "").trim();
-    const addition = `\n\nUpdate request: ${trimmed}`;
-    setPromptText(`${base}${addition}`.trim());
-    notify("Request added to prompt context");
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!input.trim()) return;
-    appendMessage(input);
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    await sendChatMessage(trimmed);
     setInput("");
   };
 
-  const handleChip = (suggestion: string) => {
-    appendMessage(suggestion);
+  const handleChip = async (suggestion: string) => {
+    await sendChatMessage(suggestion);
+    setInput("");
+  };
+
+  const roleLabel = (role: string) => {
+    switch (role) {
+      case "agent":
+        return "Requirements agent";
+      case "user":
+        return "Your request";
+      default:
+        return "Generated prompt";
+    }
+  };
+
+  const roleClassName = (role: string) => {
+    if (role === "user") {
+      return "bg-neon-500/10 ring-neon-400/20 text-neon-100";
+    }
+    if (role === "agent") {
+      return "bg-slate-800/70 ring-neon-400/30 text-slate-200";
+    }
+    return "bg-slate-800/70 ring-white/10 text-slate-200";
   };
 
   return (
@@ -101,7 +83,7 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
           <div className="flex flex-col gap-2">
             <button
               className="px-3 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 hover:bg-neon-500/30 shadow-glow transition text-sm"
-              onClick={onRegenerate}
+              onClick={() => void onRegenerate()}
             >
               Regenerate
             </button>
@@ -117,33 +99,45 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
           {SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
-              className="px-3 py-1.5 rounded-full bg-slate-800/70 ring-1 ring-white/10 text-xs hover:bg-slate-800 transition"
-              onClick={() => handleChip(suggestion)}
+              className={`px-3 py-1.5 rounded-full bg-slate-800/70 ring-1 ring-white/10 text-xs transition ${
+                isSendingChatMessage ? "opacity-60 cursor-not-allowed" : "hover:bg-slate-800"
+              }`}
+              disabled={isSendingChatMessage}
+              onClick={() => void handleChip(suggestion)}
             >
               {suggestion}
             </button>
           ))}
         </div>
+        {buildStatus !== "idle" && (
+          <div
+            className={`mt-3 rounded-lg px-3 py-2 text-xs ring-1 transition ${
+              buildStatus === "completed"
+                ? "bg-emerald-500/10 text-emerald-200 ring-emerald-400/30"
+                : buildStatus === "pending"
+                ? "bg-amber-500/10 text-amber-200 ring-amber-400/30"
+                : "bg-rose-500/10 text-rose-200 ring-rose-400/30"
+            }`}
+          >
+            {buildStatusMessage || "Status unavailable."}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1" id="review-chat-log">
-        {messages.length === 0 ? (
+        {chatMessages.length === 0 ? (
           <div className="rounded-xl bg-slate-900/50 ring-1 ring-white/10 p-4 text-sm text-slate-400">
             Generate a website to start the conversation. Your prompt will appear here ready for
             refinements.
           </div>
         ) : (
-          messages.map((message) => (
+          chatMessages.map((message) => (
             <div
               key={message.id}
-              className={`rounded-xl px-4 py-3 text-sm leading-relaxed ring-1 transition ${
-                message.role === "system"
-                  ? "bg-slate-800/70 ring-white/10 text-slate-200"
-                  : "bg-neon-500/10 ring-neon-400/20 text-neon-100"
-              }`}
+              className={`rounded-xl px-4 py-3 text-sm leading-relaxed ring-1 transition ${roleClassName(message.role)}`}
             >
               <div className="text-[11px] uppercase tracking-wide opacity-60 mb-1">
-                {message.role === "system" ? "Generated prompt" : "Your request"}
+                {roleLabel(message.role)}
               </div>
               <p>{message.content}</p>
             </div>
@@ -164,9 +158,12 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
           </span>
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 hover:bg-neon-500/30 shadow-glow transition text-sm"
+            disabled={isSendingChatMessage}
+            className={`px-4 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 shadow-glow transition text-sm ${
+              isSendingChatMessage ? "opacity-70 cursor-progress" : "hover:bg-neon-500/30"
+            }`}
           >
-            Send
+            {isSendingChatMessage ? "Sending..." : "Send"}
           </button>
         </div>
       </form>

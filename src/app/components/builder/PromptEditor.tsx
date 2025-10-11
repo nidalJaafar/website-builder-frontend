@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useConfig } from '../../context/ConfigContext';
 import { useNotifier } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const PromptEditor = () => {
   const {
@@ -11,8 +13,20 @@ export const PromptEditor = () => {
     generatePrompt,
     resetConfig,
     jsonText,
+    isGeneratingPrompt,
   } = useConfig();
   const { notify } = useNotifier();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  const handleGeneratePrompt = () => {
+    if (!isAuthenticated) {
+      router.push('/auth');
+      return;
+    }
+
+    void generatePrompt();
+  };
 
   const copyJson = async () => {
     const payload = jsonText ?? '';
@@ -60,10 +74,16 @@ export const PromptEditor = () => {
           <h3 className="font-semibold">Prompt</h3>
           <div className="flex items-center gap-2">
             <button
-              className="px-3 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 hover:bg-neon-500/30 shadow-glow transition"
-              onClick={generatePrompt}
+              type="button"
+              className={`px-3 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 shadow-glow transition ${
+                isGeneratingPrompt
+                  ? 'opacity-70 cursor-progress'
+                  : 'hover:bg-neon-500/30'
+              } ${!isAuthenticated ? 'opacity-70' : ''}`}
+              onClick={handleGeneratePrompt}
+              disabled={isGeneratingPrompt}
             >
-              Generate Prompt
+              {isGeneratingPrompt ? 'Generating...' : 'Generate Prompt'}
             </button>
             <button
               className="px-3 py-2 rounded-lg bg-slate-200 ring-1 ring-slate-300 hover:bg-slate-300 text-slate-800 dark:bg-slate-800/80 dark:ring-white/10 dark:hover:bg-slate-800 dark:text-white"
@@ -72,6 +92,11 @@ export const PromptEditor = () => {
               Reset
             </button>
           </div>
+          {!isAuthenticated && (
+            <p className="text-xs text-slate-400">
+              Sign in to enable prompt generation.
+            </p>
+          )}
         </div>
         <textarea
           className="w-full min-h-[10rem] rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 placeholder-slate-400"

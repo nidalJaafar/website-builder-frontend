@@ -1,21 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import React, { useRef } from "react";
 import { useConfig } from "@/app/context/ConfigContext";
 
 export const EssentialsForm = () => {
-  const {
-    config,
-    updateConfig,
-    setLogoPreview,
-    logoPreview,
-    fieldErrors,
-    setFieldErrors,
-  } = useConfig();
+  const { config, updateConfig, setLogoPreview, logoPreview } = useConfig();
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const brandHasError = fieldErrors.essentials.name;
-  const industryHasError = fieldErrors.essentials.industry;
 
   const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,37 +33,19 @@ export const EssentialsForm = () => {
           <span className="text-xs text-slate-400">Brand basics</span>
         </div>
         <p className="mt-1 text-slate-400 text-sm">
-          Tell us your brand name, industry, and optionally add a website description and/or logo.
+          Tell us your brand name, industry, and (optionally) upload a logo.
         </p>
         <form className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block" data-key="essentials.name">
             <span className="text-sm text-slate-300">Brand name</span>
             <input
-              id="essentials-name"
               type="text"
-              className={`mt-1 w-full rounded-lg bg-slate-800/70 ring-1 px-3 py-2 focus:outline-none focus:ring-2 ${
-                brandHasError
-                  ? "ring-red-500/60 focus:ring-red-500"
-                  : "ring-white/10 focus:ring-white/20"
-              }`}
+              className="mt-1 w-full rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2"
               placeholder="Acme Co."
               aria-label="Brand name"
-              aria-invalid={brandHasError}
               value={config.essentials.name}
-              onChange={(e) => {
-                const nextValue = e.target.value;
-                updateConfig("essentials.name", nextValue);
-                if (brandHasError && nextValue.trim()) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    essentials: { ...prev.essentials, name: false },
-                  }));
-                }
-              }}
+              onChange={(e) => updateConfig("essentials.name", e.target.value)}
             />
-            {brandHasError && (
-              <p className="mt-1 text-xs text-red-400">Brand name is required.</p>
-            )}
           </label>
 
           <label className="block" data-key="essentials.industry">
@@ -81,26 +53,13 @@ export const EssentialsForm = () => {
             <input
               list="industry-suggestions"
               type="text"
-              id="essentials-industry"
-              className={`mt-1 w-full rounded-lg bg-slate-800/70 ring-1 px-3 py-2 focus:outline-none focus:ring-2 ${
-                industryHasError
-                  ? "ring-red-500/60 focus:ring-red-500"
-                  : "ring-white/10 focus:ring-white/20"
-              }`}
+              className="mt-1 w-full rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2"
               placeholder="e.g., SaaS, Healthcare, Real Estate"
               aria-label="Industry"
-              aria-invalid={industryHasError}
               value={config.essentials.industry}
-              onChange={(e) => {
-                const nextValue = e.target.value;
-                updateConfig("essentials.industry", nextValue);
-                if (industryHasError && nextValue.trim()) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    essentials: { ...prev.essentials, industry: false },
-                  }));
-                }
-              }}
+              onChange={(e) =>
+                updateConfig("essentials.industry", e.target.value)
+              }
             />
             <datalist id="industry-suggestions">
               <option value="Technology"></option>
@@ -114,21 +73,6 @@ export const EssentialsForm = () => {
               <option value="Manufacturing"></option>
               <option value="Non‑profit"></option>
             </datalist>
-            {industryHasError && (
-              <p className="mt-1 text-xs text-red-400">Industry is required.</p>
-            )}
-          </label>
-
-          <label className="block sm:col-span-2" data-key="essentials.description">
-            <span className="text-sm text-slate-300">Website description</span>
-            <textarea
-              className="mt-1 w-full rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2"
-              placeholder="Share a short mission statement or what makes your brand unique."
-              aria-label="Website description"
-              rows={3}
-              value={config.essentials.description ?? ""}
-              onChange={(e) => updateConfig("essentials.description", e.target.value)}
-            />
           </label>
 
           <div className="sm:col-span-2" data-key="essentials.logoData">
@@ -151,15 +95,12 @@ export const EssentialsForm = () => {
               </button>
             </div>
             <input type="hidden" value={config.essentials.logoData} readOnly />
-            <div className="mt-2 h-20 w-20 rounded-xl ring-1 ring-white/10 bg-slate-800/50 grid place-items-center overflow-hidden relative">
+            <div className="mt-2 h-20 w-20 rounded-xl ring-1 ring-white/10 bg-slate-800/50 grid place-items-center overflow-hidden">
               {logoPreview ? (
-                <Image
+                <img
                   alt="Logo preview"
-                  className="object-contain"
-                  fill
-                  sizes="80px"
+                  className="h-full w-full object-contain"
                   src={logoPreview}
-                  unoptimized
                 />
               ) : (
                 <span className="text-[10px] text-slate-400">No logo</span>

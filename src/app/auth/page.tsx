@@ -1,12 +1,37 @@
 "use client";
 
-import { FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import { Header } from "../components/builder/Header";
+import { useAuth } from "../context/AuthContext";
 
 const AuthPage = () => {
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const router = useRouter();
+  const { signIn, isAuthenticating, isAuthenticated } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/builder");
+    }
+  }, [isAuthenticated, router]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = String(formData.get("email") || "");
+    const password = String(formData.get("password") || "");
+
+    const result = await signIn(email, password);
+    if (result.success) {
+      router.replace("/builder");
+    } else {
+      setError(result.message);
+    }
   };
 
   return (
@@ -26,7 +51,9 @@ const AuthPage = () => {
                 <span className="text-sm text-slate-300">Email</span>
                 <input
                   type="email"
+                  name="email"
                   required
+                  autoComplete="email"
                   placeholder="you@example.com"
                   className="mt-1 w-full rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neon-400/60"
                 />
@@ -35,16 +62,28 @@ const AuthPage = () => {
                 <span className="text-sm text-slate-300">Password</span>
                 <input
                   type="password"
+                  name="password"
                   required
+                  autoComplete="current-password"
                   placeholder="Enter your password"
                   className="mt-1 w-full rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neon-400/60"
                 />
               </label>
+              {error && (
+                <p className="text-sm text-red-400" role="alert">
+                  {error}
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded-xl bg-neon-500/20 text-neon-200 ring-1 ring-neon-400/30 px-4 py-2 text-sm font-medium hover:bg-neon-500/30 transition shadow-glow"
+                disabled={isAuthenticating}
+                className={`w-full rounded-xl bg-neon-500/20 text-neon-200 ring-1 ring-neon-400/30 px-4 py-2 text-sm font-medium transition shadow-glow ${
+                  isAuthenticating
+                    ? "opacity-70 cursor-not-allowed"
+                    : "hover:bg-neon-500/30"
+                }`}
               >
-                Sign In
+                {isAuthenticating ? "Signing in..." : "Sign In"}
               </button>
             </form>
             <div className="mt-6 text-center text-xs text-slate-500">

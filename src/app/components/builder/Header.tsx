@@ -2,14 +2,17 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/app/context/ThemeContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { AstraSiteLogo, MoonIcon, SunIcon } from "../icons";
 
 export const Header: React.FC<{ onToggleSidebar?: () => void }> = ({
   onToggleSidebar,
 }) => {
   const { theme, toggleTheme } = useTheme();
+  const { isAuthenticated, signOut } = useAuth();
+  const router = useRouter();
   const pathname = usePathname();
   const isOnAuthPage = pathname?.startsWith("/auth");
   const nextTheme = theme === "dark" ? "light" : "dark";
@@ -59,13 +62,25 @@ export const Header: React.FC<{ onToggleSidebar?: () => void }> = ({
               <span className="sr-only">Switch to {nextTheme} mode</span>
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
-            {!isOnAuthPage && (
+            {!isOnAuthPage && !isAuthenticated && (
               <Link
                 href="/auth"
                 className="px-3 py-1.5 rounded-xl bg-neon-500/20 text-neon-200 ring-1 ring-neon-400/30 hover:bg-neon-500/30 shadow-glow transition"
               >
                 Sign In
               </Link>
+            )}
+            {isAuthenticated && (
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-xl bg-slate-800/70 ring-1 ring-white/10 hover:bg-slate-800 transition text-sm"
+                onClick={() => {
+                  signOut();
+                  router.replace("/auth");
+                }}
+              >
+                Sign Out
+              </button>
             )}
           </div>
         </div>

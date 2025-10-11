@@ -7,15 +7,16 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useCallback,
 } from "react";
 import { ConfigProvider, useConfig } from "../context/ConfigContext";
+import { useAuth } from "../context/AuthContext";
 
 import { Header } from "./builder/Header";
 import { Sidebar } from "./builder/Sidebar";
 import { Hero } from "./builder/Hero";
 import { EssentialsForm } from "./builder/EssentialsForm";
 import { CoreOptionsForm } from "./builder/CoreOptionsForm";
-import { AdvancedOptionsForm } from "./builder/AdvancedOptionsForm";
 import { PromptEditor } from "./builder/PromptEditor";
 import { Preview } from "./builder/Preview";
 import { Footer } from "./builder/Footer";
@@ -29,6 +30,7 @@ const RESIZE_MAX = 0.85;
 const INITIAL_REVIEW_RATIO = 0.66;
 
 const BuilderCore = () => {
+  const { isAuthenticated } = useAuth();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isHistoryDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [previewRatio, setPreviewRatio] = useState(INITIAL_REVIEW_RATIO);
@@ -44,28 +46,50 @@ const BuilderCore = () => {
     generatePrompt,
     generateSite,
     enterConfigureMode,
+    isGeneratingPrompt,
   } = useConfig();
 
-  const handleEnterConfigure = () => {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    setSidebarOpen(false);
+    setHistoryDrawerOpen(false);
+  }, [isAuthenticated]);
+
+  const handleEnterConfigure = useCallback(() => {
     enterConfigureMode();
     setSidebarOpen(true);
     setHistoryDrawerOpen(false);
-  };
+  }, [enterConfigureMode]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     const handleKeydown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
+      const rawKey = event.key;
+      if (!rawKey) {
+        return;
+      }
+      const key = rawKey.toLowerCase();
       const hasModifier = event.metaKey || event.ctrlKey;
 
       if (hasModifier && key === "enter") {
+        if (isGeneratingPrompt) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
-        generatePrompt();
+        void generatePrompt();
         return;
       }
 
       if (hasModifier && event.shiftKey && key === "g") {
         event.preventDefault();
-        generateSite();
+        void generateSite();
         return;
       }
 
@@ -101,8 +125,14 @@ const BuilderCore = () => {
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [builderMode, enterConfigureMode, generatePrompt, generateSite]);
-
+  }, [
+    builderMode,
+    enterConfigureMode,
+    generatePrompt,
+    generateSite,
+    isGeneratingPrompt,
+    isAuthenticated,
+  ]);
 
   useEffect(() => {
     if (!isHistoryDrawerOpen) return;
@@ -129,6 +159,10 @@ const BuilderCore = () => {
   }, [isHistoryDrawerOpen]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     if (builderMode === "review") {
       window.scrollTo({ top: 0, behavior: 'auto' });
       setSidebarOpen(false);
@@ -136,7 +170,7 @@ const BuilderCore = () => {
     } else {
       setHistoryDrawerOpen(false);
     }
-  }, [builderMode]);
+  }, [builderMode, isAuthenticated]);
 
   const handleResizeStart = (
     event: ReactMouseEvent<HTMLDivElement> | ReactTouchEvent<HTMLDivElement>
@@ -223,7 +257,6 @@ const BuilderCore = () => {
                   <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 backdrop-blur p-4 sm:p-6 dark:bg-slate-900/60 mb-0 transition-all">
                     <div className="grid gap-6 grid-cols-1">
                       <CoreOptionsForm />
-                      <AdvancedOptionsForm />
                     </div>
                   </div>
                 </section>

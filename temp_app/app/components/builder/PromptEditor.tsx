@@ -1,0 +1,83 @@
+'use client';
+
+import React from 'react';
+import { useConfig } from '../../context/ConfigContext';
+import { useNotifier } from '../../context/NotificationContext';
+
+export const PromptEditor = () => {
+  const { 
+    promptText, 
+    setPromptText, 
+    generatePrompt, 
+    resetConfig, 
+    jsonText 
+  } = useConfig();
+  const { notify } = useNotifier();
+
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonText);
+      notify('JSON copied');
+    } catch {
+      notify('Copy failed');
+    }
+  };
+
+  const downloadJson = () => {
+    const blob = new Blob([jsonText], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'astrasite-options.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  return (
+    <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 backdrop-blur p-4">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Prompt</h3>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-2 rounded-lg ring-1 shadow-glow"
+              onClick={generatePrompt}
+            >
+              Generate Prompt
+            </button>
+            <button
+              className="px-3 py-2 rounded-lg bg-slate-200 ring-1 ring-slate-300 hover:bg-slate-300 text-slate-800 dark:bg-slate-800/80 dark:ring-white/10 dark:hover:bg-slate-800 dark:text-white"
+              onClick={resetConfig}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <textarea
+          className="w-full min-h-[10rem] rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 placeholder-slate-400"
+          placeholder="Your prompt will appear here. Edit freely before generating the website."
+          value={promptText}
+          onChange={e => setPromptText(e.target.value)}
+        ></textarea>
+        <details className="mt-3 rounded-xl bg-slate-900/60 ring-1 ring-white/10 p-3" id="json-view">
+          <summary className="cursor-pointer text-sm text-slate-300">Options JSON</summary>
+          <pre className="mt-2 text-xs text-slate-300 overflow-auto max-h-60">{jsonText}</pre>
+          <div className="mt-2 flex gap-2">
+            <button
+              className="px-3 py-2 rounded-lg bg-slate-800/80 ring-1 ring-white/10 hover:bg-slate-800 text-sm"
+              onClick={copyJson}
+            >
+              Copy JSON
+            </button>
+            <button
+              className="px-3 py-2 rounded-lg bg-slate-800/80 ring-1 ring-white/10 hover:bg-slate-800 text-sm"
+              onClick={downloadJson}
+            >
+              Download JSON
+            </button>
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+};

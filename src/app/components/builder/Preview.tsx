@@ -1,8 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useConfig } from '../../context/ConfigContext';
 import { useNotifier } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 
 type DeviceView = 'desktop' | 'mobile';
 
@@ -21,17 +23,54 @@ export const Preview: React.FC<PreviewProps> = ({
   onEditSettings,
   isResizing = false,
 }) => {
-  const { generateSite } = useConfig();
+  const {
+    generateSite,
+    sitePreviewHtml,
+    buildStatus,
+    buildStatusMessage,
+    downloadSiteZip,
+    isDownloadingZip,
+  } = useConfig();
   const { notify } = useNotifier();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const [iframeKey, setIframeKey] = useState(0);
 
   const handleDeviceChange = (next: DeviceView) => {
     onDeviceChange?.(next);
+  };
+
+  useEffect(() => {
+    if (sitePreviewHtml) {
+      setIframeKey((prev) => prev + 1);
+    }
+  }, [sitePreviewHtml]);
+
+  const handleGenerateSite = () => {
+    if (!isAuthenticated) {
+      router.push('/auth');
+      return;
+    }
+
+    void generateSite();
   };
 
   const frameClassName =
     device === 'mobile'
       ? 'aspect-[9/16] max-w-[22rem] mx-auto'
       : 'aspect-[16/10]';
+  const canDownloadZip = Boolean(sitePreviewHtml && buildStatus === 'completed');
+  const downloadButtonDisabled = !canDownloadZip || isDownloadingZip;
+
+  const handleDownloadZip = () => {
+    if (!downloadButtonDisabled) {
+      void downloadSiteZip();
+    } else if (!sitePreviewHtml) {
+      notify('Generate the website before downloading.');
+    } else if (buildStatus !== 'completed') {
+      notify('Wait for the build to finish before downloading.');
+    }
+  };
 
   return (
     <div className={`relative ${isResizing ? 'select-none' : ''}`} id="preview">
@@ -75,7 +114,16 @@ export const Preview: React.FC<PreviewProps> = ({
         <div
           className={`${frameClassName} rounded-xl bg-white ring-1 ring-slate-300 overflow-hidden dark:bg-slate-900 dark:ring-white/10 transition-all`}
         >
-          <div className="h-full w-full grid place-items-center">
+          {sitePreviewHtml ? (
+            <iframe
+              key={iframeKey}
+              srcDoc={sitePreviewHtml}
+              className="h-full w-full border-0"
+              sandbox="allow-scripts allow-same-origin"
+              title="Website preview"
+            />
+          ) : (
+            <div className="h-full w-full grid place-items-center">
             <div className="text-center px-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-slate-200 ring-1 ring-slate-300 px-3 py-1 text-xs text-slate-600 mb-4 dark:bg-slate-800/80 dark:ring-white/10 dark:text-slate-300">
                 <span className="h-2 w-2 rounded-full animate-pulse"></span>
@@ -89,14 +137,22 @@ export const Preview: React.FC<PreviewProps> = ({
                   ? 'Review changes, then regenerate after updating the prompt or chat requests.'
                   : 'For now: Hello, World! Generate whenever you are ready.'}
               </p>
+              {buildStatus !== 'idle' && (
+                <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">
+                  {buildStatusMessage}
+                </p>
+              )}
             </div>
           </div>
-        </div>
+        )}
+      </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="px-3 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 hover:bg-neon-500/30 shadow-glow transition"
-            onClick={generateSite}
+            className={`px-3 py-2 rounded-lg bg-neon-500/20 text-neon-100 ring-1 ring-neon-400/30 shadow-glow transition ${
+              isAuthenticated ? 'hover:bg-neon-500/30' : 'opacity-70'
+            }`}
+            onClick={handleGenerateSite}
           >
             {isReviewMode ? 'Regenerate Website' : 'Generate Website'}
           </button>
@@ -107,10 +163,16 @@ export const Preview: React.FC<PreviewProps> = ({
             Copy Code
           </button>
           <button
-            className="px-3 py-2 rounded-lg bg-slate-200 ring-1 ring-slate-300 hover:bg-slate-300 text-slate-800 dark:bg-slate-800/80 dark:ring-white/10 dark:hover:bg-slate-800 dark:text-white"
-            onClick={() => notify('Download ZIP coming soon')}
+            type="button"
+            className={`px-3 py-2 rounded-lg bg-slate-200 ring-1 ring-slate-300 text-slate-800 dark:bg-slate-800/80 dark:ring-white/10 dark:text-white transition ${
+              downloadButtonDisabled
+                ? 'opacity-60 cursor-not-allowed'
+                : 'hover:bg-slate-300 dark:hover:bg-slate-800'
+            }`}
+            onClick={handleDownloadZip}
+            disabled={downloadButtonDisabled}
           >
-            Download ZIP
+            {isDownloadingZip ? 'Preparing ZIP…' : 'Download ZIP'}
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-slate-200 ring-1 ring-slate-300 hover:bg-slate-300 text-slate-800 dark:bg-slate-800/80 dark:ring-white/10 dark:hover:bg-slate-800 dark:text-white"
