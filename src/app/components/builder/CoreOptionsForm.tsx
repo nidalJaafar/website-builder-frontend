@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
+import type { AccentOption } from "@/app/context/ConfigContext";
 import { useConfig, SectionOption } from "@/app/context/ConfigContext";
 import { ChevronDown } from "../icons";
 
@@ -22,11 +23,48 @@ const HERO_MEDIA_OPTIONS = [
 
 export const CoreOptionsForm = () => {
   const { config, updateConfig } = useConfig();
+  const colorPickerBaseId = useId();
+  const accentOptions: Array<{ value: AccentOption; label: string }> = [
+    { value: "custom", label: "Custom palette" },
+    { value: "ai_choice", label: "Let the AI choose" },
+    { value: "neon_cyan", label: "Neon cyan" },
+    { value: "purple", label: "Purple" },
+    { value: "emerald", label: "Emerald" },
+    { value: "amber", label: "Amber" },
+  ];
+  const accentIsCustom = config.core.branding.accent === "custom";
+  const palette = config.core.branding.customPalette;
+  const customColorSlots: Array<{
+    key: "primary" | "secondary" | "tertiary";
+    label: string;
+    fallback: string;
+    optional?: boolean;
+  }> = [
+    { key: "primary", label: "Primary color", fallback: "#000000" },
+    { key: "secondary", label: "Secondary color", fallback: "#FFFFFF" },
+    { key: "tertiary", label: "Tertiary color", fallback: "#000000", optional: true },
+  ];
 
   const handleValueChange =
     (path: string) =>
     (event: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) =>
       updateConfig(path, event.target.value);
+
+  const handleAccentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextAccent = event.target.value as AccentOption;
+    updateConfig("core.branding.accent", nextAccent);
+  };
+
+  const handleCustomColorChange =
+    (key: "primary" | "secondary" | "tertiary") =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const nextValue = event.target.value.toUpperCase();
+      updateConfig(`core.branding.customPalette.${key}`, nextValue);
+    };
+
+  const clearCustomColor = (key: "primary" | "secondary" | "tertiary") => () => {
+    updateConfig(`core.branding.customPalette.${key}`, "");
+  };
 
   const toggleSection = (value: SectionOption) => () => {
     const sections = config.core.sections;
@@ -76,26 +114,6 @@ export const CoreOptionsForm = () => {
         ))}
       </fieldset>
 
-      <label className="block" data-key="core.preset">
-        <span className="text-sm text-slate-300">Preset</span>
-        <div className="relative">
-          <select
-            className="mt-1 w-full rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 pr-10 appearance-none"
-            value={config.core.preset}
-            onChange={handleValueChange("core.preset")}
-          >
-            {["landing", "saas", "portfolio", "restaurant", "ecommerce", "blog", "docs"].map(
-              (option) => (
-                <option key={option} value={option}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </option>
-              )
-            )}
-          </select>
-          <ChevronDown />
-        </div>
-      </label>
-
       <div className="grid grid-cols-2 gap-3">
         <label className="block" data-key="core.branding.colorMode">
           <span className="text-sm text-slate-300">Color mode</span>
@@ -118,11 +136,11 @@ export const CoreOptionsForm = () => {
             <select
               className="mt-1 w-full rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 pr-10 appearance-none"
               value={config.core.branding.accent}
-              onChange={handleValueChange("core.branding.accent")}
+              onChange={handleAccentChange}
             >
-              {["neon_cyan", "purple", "emerald", "amber", "custom"].map((option) => (
-                <option key={option} value={option}>
-                  {option.replace("_", " ")}
+              {accentOptions.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -130,6 +148,86 @@ export const CoreOptionsForm = () => {
           </div>
         </label>
       </div>
+
+      {accentIsCustom && (
+        <div className="rounded-xl bg-slate-900/50 ring-1 ring-white/10 px-3 py-4">
+          <p className="text-xs text-slate-400">
+            Pick up to three accent colors. These will be sent as hex codes in your configuration.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {customColorSlots.map(({ key, label, fallback, optional }) => {
+                const colorValue = palette[key] ? palette[key] : "";
+                const inputId = `${colorPickerBaseId}-${key}`;
+                const fallbackUpper = fallback.toUpperCase();
+
+                return (
+                <div key={key} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-300">{label}</span>
+                    <span className="text-xs text-slate-400">
+                      {colorValue
+                        ? colorValue.toUpperCase()
+                        : optional
+                        ? "None"
+                        : fallbackUpper}
+                    </span>
+                  </div>
+                  <label
+                    htmlFor={inputId}
+                    className="relative block h-12 rounded-xl ring-1 ring-white/10 overflow-hidden cursor-pointer focus-within:ring-2 focus-within:ring-neon-400/60"
+                  >
+                    <span className="sr-only">{`Select ${label.toLowerCase()}`}</span>
+                    <div
+                      className="h-full w-full"
+                      style={{
+                        background: colorValue || (optional ? "transparent" : fallbackUpper),
+                      }}
+                    />
+                    {!colorValue && optional && (
+                      <div className="absolute inset-0 grid place-items-center text-[11px] uppercase tracking-wide text-slate-400">
+                        Optional
+                      </div>
+                    )}
+                  </label>
+                  <input
+                    id={inputId}
+                    type="color"
+                    className="sr-only"
+                    value={colorValue ? colorValue.toUpperCase() : fallbackUpper}
+                    onChange={handleCustomColorChange(key)}
+                  />
+                  {optional && colorValue && (
+                    <button
+                      type="button"
+                      onClick={clearCustomColor(key)}
+                      className="text-xs text-slate-400 hover:text-slate-200 transition"
+                    >
+                      Clear color
+                    </button>
+                  )}
+                  {!optional && (
+                    <p className="text-xs text-slate-500">
+                      {colorValue && colorValue !== fallbackUpper
+                        ? `Selected: ${colorValue.toUpperCase()}`
+                        : `Default: ${fallbackUpper}`}
+                    </p>
+                  )}
+                  {optional &&
+                    (colorValue ? (
+                      <p className="text-xs text-slate-500">
+                        Selected: {colorValue.toUpperCase()}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        Add a third accent if you want more variety.
+                      </p>
+                    ))}
+                </div>
+              );
+              })}
+          </div>
+        </div>
+      )}
 
       <fieldset className="space-y-2" data-key="core.nav.placement">
         <legend className="text-sm text-slate-300">Navigation placement</legend>

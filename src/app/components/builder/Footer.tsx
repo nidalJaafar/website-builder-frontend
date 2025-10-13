@@ -43,7 +43,7 @@ export const Footer = () => {
             <ul className="mt-2 space-y-1 list-disc list-inside">
               <li>Cmd/Ctrl + Enter - Generate Prompt</li>
               <li>Cmd/Ctrl + Shift + G - Generate/Regenerate Website</li>
-              <li>Cmd/Ctrl + B - Toggle Advanced Options</li>
+              {/* <li>Cmd/Ctrl + B - Toggle Advanced Options</li> */}
               <li>Cmd/Ctrl + E - Return to Configure Mode</li>
               <li>Cmd/Ctrl + Shift + H - Toggle History Drawer (Review)</li>
             </ul>

@@ -47,6 +47,7 @@ const BuilderCore = () => {
     generateSite,
     enterConfigureMode,
     isGeneratingPrompt,
+    isSendingChatMessage,
   } = useConfig();
 
   useEffect(() => {
@@ -225,6 +226,9 @@ const BuilderCore = () => {
     return count === 1 ? "1 section" : `${count} sections`;
   }, [config.core.sections.length]);
 
+  const siteTypeLabel =
+    config.core.siteType === "multi_page" ? "Multi-page layout" : "Single-page layout";
+
   const hasAdvancedTweaks = useMemo(() => {
     const advanced = config.advanced || {};
     return Object.values(advanced).some((value) => {
@@ -283,7 +287,7 @@ const BuilderCore = () => {
     <div className="max-w-full mx-auto px-2 sm:px-4 lg:px-6 py-4 space-y-4">
       <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 backdrop-blur px-4 py-3 flex flex-wrap gap-3 items-center justify-between">
         <div className="text-sm text-slate-300">
-          Using {activeSectionsLabel} | {config.core.preset} preset
+          Using {activeSectionsLabel} | {siteTypeLabel}
           {hasAdvancedTweaks ? " | Advanced tweaks active" : ""}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -310,12 +314,12 @@ const BuilderCore = () => {
       </div>
 
       <div
-        className="rounded-2xl bg-slate-900/30 ring-1 ring-white/5 backdrop-blur"
+        className="rounded-2xl bg-slate-900/30 ring-1 ring-white/5 backdrop-blur overflow-hidden lg:h-[110vh]"
         ref={containerRef}
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:gap-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:gap-0 h-full">
           <div
-            className="lg:flex-[1_1_0%] lg:min-w-[18rem] px-4 py-4"
+            className="lg:flex-[1_1_0%] lg:min-w-[18rem] px-4 py-4 lg:py-6 flex flex-col h-full min-h-0"
             style={{ flexBasis: `${Math.max(1 - previewRatio, 0.2) * 100}%` }}
           >
             <ReviewChat onRegenerate={generateSite} onEditSettings={handleEnterConfigure} />
@@ -412,6 +416,25 @@ const BuilderCore = () => {
           {renderHistoryToggle()}
           {renderHistoryDrawer()}
         </>
+      )}
+
+      {isSendingChatMessage && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-200/65 text-slate-800 backdrop-blur-sm dark:bg-slate-950/80 dark:text-slate-200">
+          <div
+            aria-hidden
+            className="h-14 w-14 rounded-full border-4 border-t-transparent animate-spin"
+            style={{
+              borderColor: "rgba(64, 204, 255, 0.9)",
+              borderTopColor: "transparent",
+            }}
+          />
+          <p className="mt-6 text-lg font-semibold text-neon-400 dark:text-neon-200">
+            Sending your message...
+          </p>
+          <p className="mt-2 max-w-sm text-center text-sm text-slate-600 dark:text-slate-300">
+            This may take a moment if the AI has started building your website.
+          </p>
+        </div>
       )}
     </div>
   );

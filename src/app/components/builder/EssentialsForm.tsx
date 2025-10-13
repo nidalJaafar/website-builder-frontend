@@ -1,39 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import React, { useRef } from "react";
+import React from "react";
 import { useConfig } from "@/app/context/ConfigContext";
 
 export const EssentialsForm = () => {
-  const {
-    config,
-    updateConfig,
-    setLogoPreview,
-    logoPreview,
-    fieldErrors,
-    setFieldErrors,
-  } = useConfig();
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const { config, updateConfig, fieldErrors, setFieldErrors } = useConfig();
   const brandHasError = fieldErrors.essentials.name;
   const industryHasError = fieldErrors.essentials.industry;
-
-  const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || "");
-      updateConfig("essentials.logoData", dataUrl);
-      setLogoPreview(dataUrl);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const clearLogo = () => {
-    if (fileRef.current) fileRef.current.value = "";
-    updateConfig("essentials.logoData", "");
-    setLogoPreview("");
-  };
 
   return (
     <section className="relative overflow-hidden" id="essentials">
@@ -43,7 +16,7 @@ export const EssentialsForm = () => {
           <span className="text-xs text-slate-400">Brand basics</span>
         </div>
         <p className="mt-1 text-slate-400 text-sm">
-          Tell us your brand name, industry, and optionally add a website description and/or logo.
+          Tell us your brand name, industry, and optionally add a website description.
         </p>
         <form className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block" data-key="essentials.name">
@@ -130,42 +103,6 @@ export const EssentialsForm = () => {
               onChange={(e) => updateConfig("essentials.description", e.target.value)}
             />
           </label>
-
-          <div className="sm:col-span-2" data-key="essentials.logoData">
-            <span className="text-sm text-slate-300">Logo</span>
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <input
-                ref={fileRef}
-                id="logo-file"
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml"
-                className="flex-1 min-w-60 rounded-lg bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 file:mr-3 file:rounded-md file:border-0 file:bg-slate-700 file:px-3 file:py-2 file:text-sm file:text-white/90"
-                onChange={onLogoChange}
-              />
-              <button
-                type="button"
-                onClick={clearLogo}
-                className="px-3 py-2 rounded-lg bg-slate-800/70 ring-1 ring-white/10 hover:bg-slate-800 text-sm"
-              >
-                Clear
-              </button>
-            </div>
-            <input type="hidden" value={config.essentials.logoData} readOnly />
-            <div className="mt-2 h-20 w-20 rounded-xl ring-1 ring-white/10 bg-slate-800/50 grid place-items-center overflow-hidden relative">
-              {logoPreview ? (
-                <Image
-                  alt="Logo preview"
-                  className="object-contain"
-                  fill
-                  sizes="80px"
-                  src={logoPreview}
-                  unoptimized
-                />
-              ) : (
-                <span className="text-[10px] text-slate-400">No logo</span>
-              )}
-            </div>
-          </div>
         </form>
       </div>
     </section>

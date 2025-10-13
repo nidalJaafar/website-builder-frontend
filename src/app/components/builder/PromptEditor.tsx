@@ -99,6 +99,7 @@ export const PromptEditor = () => {
           )}
         </div>
         <textarea
+          id="prompt-editor-textarea"
           className="w-full min-h-[10rem] rounded-xl bg-slate-800/70 ring-1 ring-white/10 px-3 py-2 placeholder-slate-400"
           placeholder="Your prompt will appear here. Edit freely before generating the website."
           value={promptText}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useConfig } from "@/app/context/ConfigContext";
 
 type ReviewChatProps = {
@@ -28,6 +28,7 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
     buildStatusMessage,
   } = useConfig();
   const [input, setInput] = useState("");
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
 
   const hasConversation = useMemo(
     () => chatMessages.length > 1,
@@ -69,8 +70,16 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
     return "bg-slate-800/70 ring-white/10 text-slate-200";
   };
 
+  useEffect(() => {
+    const logEl = chatLogRef.current;
+    if (!logEl) return;
+    requestAnimationFrame(() => {
+      logEl.scrollTop = logEl.scrollHeight;
+    });
+  }, [chatMessages.length]);
+
   return (
-    <div className="h-full rounded-2xl bg-slate-900/60 ring-1 ring-white/10 backdrop-blur p-4 flex flex-col gap-4">
+    <div className="flex-1 h-full min-h-0 lg:min-h-[28rem] rounded-2xl bg-slate-900/60 ring-1 ring-white/10 backdrop-blur p-4 flex flex-col gap-4">
       <div>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -124,7 +133,11 @@ export const ReviewChat: React.FC<ReviewChatProps> = ({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1" id="review-chat-log">
+      <div
+        className="flex-1 overflow-y-auto space-y-3 pr-1"
+        id="review-chat-log"
+        ref={chatLogRef}
+      >
         {chatMessages.length === 0 ? (
           <div className="rounded-xl bg-slate-900/50 ring-1 ring-white/10 p-4 text-sm text-slate-400">
             Generate a website to start the conversation. Your prompt will appear here ready for

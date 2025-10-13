@@ -15,16 +15,13 @@ import { useAuth } from './AuthContext';
 
 // --- TYPE DEFINITIONS ---
 export type SiteType = 'single_page' | 'multi_page';
-export type PresetOption =
-  | 'landing'
-  | 'saas'
-  | 'portfolio'
-  | 'restaurant'
-  | 'ecommerce'
-  | 'blog'
-  | 'docs';
 export type ColorModeOption = 'system' | 'light' | 'dark';
-export type AccentOption = 'neon_cyan' | 'purple' | 'emerald' | 'amber' | 'custom';
+export type AccentOption = 'neon_cyan' | 'purple' | 'emerald' | 'amber' | 'custom' | 'ai_choice';
+export type CustomAccentPalette = {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+};
 export type NavPlacementOption = 'topbar' | 'sidebar_left' | 'sidebar_right';
 export type SectionOption =
   | 'features'
@@ -68,10 +65,10 @@ export type BuilderMode = 'configure' | 'review';
 
 export interface CoreConfig {
   siteType: SiteType;
-  preset: PresetOption;
   branding: {
     colorMode: ColorModeOption;
     accent: AccentOption;
+    customPalette: CustomAccentPalette;
   };
   nav: {
     placement: NavPlacementOption;
@@ -128,9 +125,73 @@ export interface AdvancedConfig {
 
 // --- CONTEXT TYPES ---
 export type Config = {
-  essentials: { name: string; industry: string; description?: string; logoData: string };
+  essentials: { name: string; industry: string; description?: string };
   core: CoreConfig;
   advanced: AdvancedConfig;
+};
+
+export const createDefaultCustomPalette = (): CustomAccentPalette => ({
+  primary: '#000000',
+  secondary: '#FFFFFF',
+  tertiary: '',
+});
+
+const normalizeConfigBranding = (config: Config | null | undefined) => {
+  if (!config || !config.core) {
+    return;
+  }
+
+  const coreRef = config.core as unknown as {
+    branding?: Partial<CoreConfig['branding']> & {
+      customPalette?: Partial<CustomAccentPalette>;
+    };
+  };
+
+  const brandingCandidate = coreRef.branding ?? {};
+  const paletteCandidate =
+    (brandingCandidate.customPalette ?? {}) as Partial<CustomAccentPalette>;
+
+  const normalizedPalette: CustomAccentPalette = {
+    primary:
+      typeof paletteCandidate.primary === 'string' && paletteCandidate.primary
+        ? paletteCandidate.primary
+        : '#000000',
+    secondary:
+      typeof paletteCandidate.secondary === 'string' && paletteCandidate.secondary
+        ? paletteCandidate.secondary
+        : '#FFFFFF',
+    tertiary:
+      typeof paletteCandidate.tertiary === 'string' ? paletteCandidate.tertiary : '',
+  };
+
+  config.core = {
+    ...config.core,
+    branding: {
+      colorMode: (brandingCandidate.colorMode ?? 'system') as ColorModeOption,
+      accent: (brandingCandidate.accent ?? 'custom') as AccentOption,
+      customPalette: normalizedPalette,
+    },
+  };
+};
+
+const serializeConfig = (cfg: Config): Config => {
+  const clone = structuredClone(cfg) as Config;
+  normalizeConfigBranding(clone);
+  const brandingRecord = clone.core.branding as unknown as Record<string, unknown>;
+
+  if (clone.core.branding.accent !== 'custom') {
+    delete brandingRecord.customPalette;
+    if (clone.core.branding.accent === 'ai_choice') {
+      brandingRecord.accentInstruction =
+        'Please choose the accent colors based on the brand name and industry provided.';
+    } else {
+      delete brandingRecord.accentInstruction;
+    }
+  } else {
+    delete brandingRecord.accentInstruction;
+  }
+
+  return clone;
 };
 
 type FieldErrors = {
@@ -163,7 +224,6 @@ interface IConfigContext {
   promptText: string;
   jsonText: string;
   history: HistoryItem[];
-  logoPreview: string;
   builderMode: BuilderMode;
   lastGeneratedPrompt: string;
   updateConfig: (path: string, value: unknown) => void;
@@ -173,7 +233,6 @@ interface IConfigContext {
   loadFromHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
   setPromptText: (text: string) => void;
-  setLogoPreview: (data: string) => void;
   enterConfigureMode: () => void;
   enterReviewMode: (options?: { preservePrompt?: boolean }) => void;
   fieldErrors: FieldErrors;
@@ -228,11 +287,14 @@ function setByPath(
 }
 
 const initialConfig: Config = {
-  essentials: { name: '', industry: '', description: '', logoData: '' },
+  essentials: { name: '', industry: '', description: '' },
   core: {
     siteType: 'single_page',
-    preset: 'landing',
-    branding: { colorMode: 'system', accent: 'neon_cyan' },
+    branding: {
+      colorMode: 'system',
+      accent: 'custom',
+      customPalette: createDefaultCustomPalette(),
+    },
     nav: { placement: 'topbar' },
     sections: ['features', 'pricing', 'faq', 'contact'],
     hero: { type: 'headline_subcopy', media: ['gradient_orbs'] },
@@ -370,10 +432,9 @@ const POLL_INTERVAL_MS = 15000;
 function buildReadablePrompt(cfg: Config) {
   const lines: string[] = [];
   const e = cfg.essentials || {};
-  if (e.name || e.industry || e.description || e.logoData) {
-    const logoPart = e.logoData ? ' (logo provided)' : '';
+  if (e.name || e.industry || e.description) {
     const infoParts = [
-      `Brand: ${e.name || 'Untitled'} - Industry: ${e.industry || 'General'}${logoPart}`,
+      `Brand: ${e.name || 'Untitled'} - Industry: ${e.industry || 'General'}`,
     ];
     if (e.description) {
       infoParts.push(`Description: ${e.description}`);
@@ -381,7 +442,27 @@ function buildReadablePrompt(cfg: Config) {
     lines.unshift(`${infoParts.join('. ')}. `);
   }
   const c = cfg.core || {};
-  lines.push(`Create a ${c.siteType || 'single_page'} ${c.preset || 'landing'} website.`);
+  const sections =
+    Array.isArray(c.sections) && c.sections.length
+      ? ` featuring ${c.sections.map((section) => section.replace(/_/g, ' ')).join(', ')}`
+      : '';
+  lines.push(`Create a ${c.siteType || 'single_page'} website${sections}.`);
+  const branding = c.branding as Partial<CoreConfig['branding']> | undefined;
+  if (branding?.accent === 'custom') {
+    const palette = branding.customPalette;
+    if (palette) {
+      const paletteColors = [palette.primary, palette.secondary, palette.tertiary]
+        .filter((color): color is string => Boolean(color))
+        .map((color) => color.toUpperCase());
+      if (paletteColors.length) {
+        lines.push(`Preferred accent colors: ${paletteColors.join(', ')}.`);
+      }
+    }
+  } else if (branding?.accent === 'ai_choice') {
+    lines.push('Accent style: Choose colors that match the brand name and industry context.');
+  } else if (branding?.accent) {
+    lines.push(`Accent style: ${branding.accent.replace(/_/g, ' ')}.`);
+  }
   return lines.join('');
 }
 
@@ -390,7 +471,6 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [promptText, setPromptText] = useState('');
   const [jsonText, setJsonText] = useState('{}');
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [logoPreview, setLogoPreview] = useState('');
   const [builderMode, setBuilderMode] = useState<BuilderMode>('configure');
   const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>(createFieldErrorState());
@@ -405,11 +485,13 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   const [buildStatusMessage, setBuildStatusMessage] = useState('');
   const [sitePreviewHtml, setSitePreviewHtml] = useState<string | null>(null);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const [pendingNotification, setPendingNotification] = useState<string | null>(null);
   const assetUrlsRef = useRef<string[]>([]);
   const pollTimeoutRef = useRef<number | null>(null);
 
   const updateJsonView = useCallback((cfg: Config) => {
-    setJsonText(JSON.stringify(cfg || {}, null, 2));
+    const serialized = serializeConfig(cfg);
+    setJsonText(JSON.stringify(serialized || {}, null, 2));
   }, []);
 
   const clearSitePreview = useCallback(() => {
@@ -440,15 +522,32 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     try {
       const rawHistory = localStorage.getItem('astrasite:history');
       if (rawHistory) {
-        setHistory(JSON.parse(rawHistory));
+        const parsedHistory = JSON.parse(rawHistory) as HistoryItem[];
+        parsedHistory.forEach((item) => {
+          if (item?.options?.core) {
+            const core = item.options.core as unknown as Record<string, unknown>;
+            if ('preset' in core) {
+              delete core.preset;
+            }
+          }
+          normalizeConfigBranding(item?.options);
+        });
+        setHistory(parsedHistory);
       }
 
       const rawConfig = localStorage.getItem('astrasite:last_cfg');
       if (rawConfig) {
-        const parsed = JSON.parse(rawConfig) as Config;
-        setConfig(parsed);
-        setLogoPreview(parsed.essentials?.logoData || '');
-        updateJsonView(parsed);
+        const parsed = JSON.parse(rawConfig) as Record<string, unknown>;
+        const parsedConfig = parsed as Config;
+        if (parsedConfig && typeof parsedConfig === 'object' && parsedConfig.core) {
+          const core = parsedConfig.core as unknown as Record<string, unknown>;
+          if ('preset' in core) {
+            delete core.preset;
+          }
+        }
+        normalizeConfigBranding(parsedConfig);
+        setConfig(parsedConfig);
+        updateJsonView(parsedConfig);
       } else {
         updateJsonView(initialConfig);
       }
@@ -460,7 +559,11 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem('astrasite:history', JSON.stringify(history));
+      const serializableHistory = history.map((item) => ({
+        ...item,
+        options: serializeConfig(item.options),
+      }));
+      localStorage.setItem('astrasite:history', JSON.stringify(serializableHistory));
     } catch (error) {
       console.error('Failed to save history', error);
     }
@@ -468,7 +571,8 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem('astrasite:last_cfg', JSON.stringify(config));
+      const serializableConfig = serializeConfig(config);
+      localStorage.setItem('astrasite:last_cfg', JSON.stringify(serializableConfig));
     } catch (error) {
       console.error('Failed to persist config', error);
     }
@@ -499,16 +603,28 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
   const updateBuildStatus = useCallback(
     (next: BuildStatus, message: string, options?: { notifyMessage?: string }) => {
+      let messageToNotify: string | null = null;
       setBuildStatus((prev) => {
         if (prev !== next && options?.notifyMessage) {
-          notify(options.notifyMessage);
+          messageToNotify = options.notifyMessage;
         }
         return next;
       });
       setBuildStatusMessage(message);
+      if (messageToNotify) {
+        setPendingNotification(messageToNotify);
+      }
     },
-    [notify]
+    []
   );
+
+  useEffect(() => {
+    if (!pendingNotification) {
+      return;
+    }
+    notify(pendingNotification);
+    setPendingNotification(null);
+  }, [pendingNotification, notify]);
 
   const fetchAndPrepareSite = useCallback(
     async (sessionId: string) => {
@@ -894,6 +1010,9 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
         } else if (rawStatus === 'pending') {
           updateBuildStatus('pending', 'Website build in progress...');
           scheduleNextPoll();
+        } else if (rawStatus === 'reactivated') {
+          updateBuildStatus('pending', 'Website edit in progress...');
+          scheduleNextPoll();
         } else {
           if (pollTimeoutRef.current) {
             clearTimeout(pollTimeoutRef.current);
@@ -974,7 +1093,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify({ config: serializeConfig(config) }),
       });
 
       if (!response.ok) {
@@ -1008,14 +1127,14 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetConfig = () => {
-    setConfig(initialConfig);
+    const reset = structuredClone(initialConfig) as Config;
+    setConfig(reset);
     setPromptText('');
-    setLogoPreview('');
     setBuilderMode('configure');
     setLastGeneratedPrompt('');
     setFieldErrors(createFieldErrorState());
     resetChatState();
-    updateJsonView(initialConfig);
+    updateJsonView(reset);
     notify('Options reset');
   };
 
@@ -1031,8 +1150,31 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const prompt = promptText.trim() || buildReadablePrompt(config);
-    addToHistory({ title: config.core.preset || 'Project', prompt, options: config });
+    const trimmedPromptText = promptText.trim();
+    const previousPrompt = lastGeneratedPrompt.trim();
+    if (!trimmedPromptText && !previousPrompt) {
+      notify('Generate a prompt before building your website.');
+      if (typeof window !== 'undefined') {
+        window.requestAnimationFrame(() => {
+          const textarea = document.getElementById(
+            'prompt-editor-textarea'
+          ) as HTMLTextAreaElement | null;
+          textarea?.focus();
+        });
+      }
+      return;
+    }
+
+    const normalizedSnapshot = structuredClone(config) as Config;
+    normalizeConfigBranding(normalizedSnapshot);
+    const serializableSnapshot = serializeConfig(normalizedSnapshot);
+    const prompt = trimmedPromptText || previousPrompt;
+    const historyTitle =
+      normalizedSnapshot.essentials.name?.trim() ||
+      (normalizedSnapshot.core.siteType === 'multi_page'
+        ? 'Multi-page Project'
+        : 'Single-page Project');
+    addToHistory({ title: historyTitle, prompt, options: normalizedSnapshot });
     setLastGeneratedPrompt(prompt);
     setBuilderMode('review');
     notify(`Generating: ${prompt.substring(0, 30)}...`);
@@ -1052,7 +1194,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
       const response = await fetch(CHAT_START_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_input: prompt, config }),
+        body: JSON.stringify({ user_input: prompt, config: serializableSnapshot }),
       });
 
       if (!response.ok) {
@@ -1182,11 +1324,12 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loadFromHistory = (item: HistoryItem) => {
-    setConfig(item.options);
+    const optionsClone = structuredClone(item.options) as Config;
+    normalizeConfigBranding(optionsClone);
+    setConfig(optionsClone);
     setPromptText(item.prompt || '');
     setLastGeneratedPrompt(item.prompt || '');
-    updateJsonView(item.options);
-    setLogoPreview(item.options.essentials.logoData || '');
+    updateJsonView(optionsClone);
     setFieldErrors(createFieldErrorState());
     resetChatState();
     setBuilderMode('review');
@@ -1214,7 +1357,6 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     promptText,
     jsonText,
     history,
-    logoPreview,
     builderMode,
     lastGeneratedPrompt,
     updateConfig,
@@ -1224,7 +1366,6 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
     loadFromHistory,
     clearHistory,
     setPromptText,
-    setLogoPreview,
     enterConfigureMode,
     enterReviewMode,
     fieldErrors,
